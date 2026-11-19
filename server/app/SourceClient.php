@@ -78,18 +78,25 @@ class SourceClient
     }
 
     /**
-     * 乱码修复：部分条目 UTF-8 字节被按 GBK 解码（如 "姹熷崡"），可逆则还原
+     * 乱码修复：源站偶尔把 UTF-8 字节按 GBK 解码（如「江南」→「姹熷崡」）。
+     * 注意「》」等字符被误解码后会变成 €(U+20AC) 等 GBK 无法回编码的符号，
+     * 因此按 GB18030 回编码（它是 GBK 的超集，覆盖 €），再校验是否为合法 UTF-8。
      */
     private static function fixEncoding(string $s): string
     {
         if ($s === '' || !preg_match('/[\x{3400}-\x{9FFF}]/u', $s)) {
             return $s;
         }
-        $fixed = @mb_convert_encoding($s, 'GBK', 'UTF-8');
-        if (is_string($fixed) && $fixed !== '' && mb_check_encoding($fixed, 'UTF-8')) {
-            if (preg_match('/[\x{3400}-\x{9FFF}]/u', $fixed)) {
-                return $fixed;
+        foreach (['GB18030', 'GBK'] as $charset) {
+            $fixed = @mb_convert_encoding($s, $charset, 'UTF-8');
+            if (!is_string($fixed) || $fixed === '' || !mb_check_encoding($fixed, 'UTF-8')) {
+                continue;
             }
+            // 修复结果必须仍含中文，且不含替换符，避免把正常中文误伤
+            if (!preg_match('/[\x{3400}-\x{9FFF}]/u', $fixed) || str_contains($fixed, "\u{FFFD}")) {
+                continue;
+            }
+            return $fixed;
         }
         return $s;
     }
