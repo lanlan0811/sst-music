@@ -46,9 +46,21 @@ curl http://127.0.0.1:8000/api/health
 
 ### 客户端
 
-1. HBuilderX → 导入 → 选择 `client/` 目录
-2. 修改 `client/config.js` 中的 `DEFAULT_BASE_URL` 为你的后端地址（如 `https://music.example.com/api`）
+1. HBuilderX → 导入 → 选择 `client/` 目录（注意是 `client/`，不是仓库根目录）
+2. `client/config.js` 中的 `DEFAULT_BASE_URL` 填线上后端地址；**H5 在 localhost 调试时会自动指向 `http://127.0.0.1:8100/api`**，无需修改
 3. 运行到浏览器（H5）调试，或「发行 → 原生 App - 云打包」生成 APK
+
+本地联调：
+
+```bash
+# 终端 1：后端（需要本机 PHP 8 + MySQL）
+cd server && cp config.example.php config.php   # 填数据库
+php -S 127.0.0.1:8100 -t public
+
+# HBuilderX：运行 → 运行到浏览器 → Chrome
+```
+
+> H5 调试时后端需允许跨域，已内置 CORS（`server/app/bootstrap.php` 的 `send_cors()`）。
 
 打包配置已在 `manifest.json` 设置好：`minSdkVersion=31`、`targetSdkVersion=33`，仅申请网络/唤醒锁权限（下载写入应用私有目录，无需存储权限）。
 

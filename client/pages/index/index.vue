@@ -101,6 +101,7 @@
 	import { PLATFORMS } from '@/config.js';
 	import { setQueue, player, setRemoteMode } from '@/store/player.js';
 	import { downloadSong, findDownload } from '@/utils/download.js';
+	import { addSongToRoom } from '@/utils/room.js';
 	const LAST_QUERY = 'sst_last_query';
 
 	export default {
@@ -248,9 +249,10 @@
 					uni.showToast({ title: (e && e.message) || '下载失败', icon: 'none' });
 				}
 			},
-			addToRoom(song) {
-				uni.$emit('sst_add_to_room', song);
-				uni.showToast({ title: '已加入一起听队列', icon: 'none' });
+			async addToRoom(song) {
+				const res = await addSongToRoom(song);
+				uni.showToast({ title: res.msg, icon: res.ok ? 'success' : 'none' });
+				if (res.ok) uni.$emit('sst_room_added', song);
 			},
 			goFriends() {
 				uni.navigateTo({ url: '/pages/friends/friends' });

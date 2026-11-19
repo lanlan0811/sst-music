@@ -30,18 +30,21 @@
 		</view>
 
 		<!-- 房间中 -->
-		<view v-else class="room">
-			<view class="room-head">
-				<view class="room-info">
-					<text class="room-title">一起听房间</text>
-					<view class="room-code-row">
-						<text class="room-code">邀请码 {{ room.code }}</text>
-						<text class="copy-btn" @click="copyCode">复制</text>
+			<view v-else class="room">
+				<view class="room-head">
+					<view class="room-info">
+						<text class="room-title">一起听房间</text>
+						<view class="room-code-row">
+							<text class="room-code">邀请码 {{ room.code }}</text>
+							<text class="copy-btn" @click="copyCode">复制</text>
+						</view>
 					</view>
-				</view>
-				<view class="sync-state" :class="syncClass">
-						<text class="sync-dot"></text>
-						<text class="sync-text">{{ syncText }}</text>
+					<view class="room-head-right">
+						<view class="sync-state" :class="syncClass">
+							<text class="sync-dot"></text>
+							<text class="sync-text">{{ syncText }}</text>
+						</view>
+						<view class="add-btn" @click="goSearch">去首页加歌</view>
 					</view>
 				</view>
 
@@ -134,7 +137,7 @@
 <script>
 	import { api } from '@/utils/request.js';
 	import { user } from '@/store/user.js';
-	import { setRemoteMode, player, playAt, stop, setQuality } from '@/store/player.js';
+	import { setRemoteMode, player, playAt, stop } from '@/store/player.js';
 	import * as audio from '@/utils/audio.js';
 	import { getScreenInfo } from '@/utils/layout.js';
 	import { formatTime } from '@/utils/lyrics.js';
@@ -154,6 +157,8 @@
 				friends: [],
 				isTablet: false,
 				pollTimer: null,
+				tickTimer: null,
+				tick: 0,
 				localOffset: 0,
 				syncState: 'idle',
 				playingIndexLoaded: -1,
@@ -185,6 +190,8 @@
 				return Math.min(this.displayPosition, this.sliderMax);
 			},
 			displayPosition() {
+				// tick 为 500ms 一次的响应式计数器，保证播放中时间持续前进
+				this.tick;
 				if (this.state.is_playing && this.state.state_at) {
 					const elapsed = Date.now() - this.state.state_at + this.localOffset;
 					return Math.max(0, this.state.position_ms + elapsed);
@@ -237,6 +244,9 @@
 			goFriends() {
 				uni.navigateTo({ url: '/pages/friends/friends' });
 			},
+			goSearch() {
+				uni.switchTab({ url: '/pages/index/index' });
+			},
 			async loadFriends() {
 				try {
 					const data = await api.friends();
@@ -285,7 +295,6 @@
 				uni.setStorageSync('sst_room_id', roomRef.room_id);
 				uni.setStorageSync('sst_room_code', roomRef.code);
 				setRemoteMode(true);
-				setQuality(player.quality);
 				this.version = -1;
 				this.playingIndexLoaded = -1;
 				if (initialSnapshot) {
@@ -374,20 +383,28 @@
 						if (data && data.changed === false) return;
 						if (data && data.changed) this.applySnapshot(data);
 					} catch (e) {
-						if (e && e.code === 409) {
-							// 房间已关闭
+						if (e && (e.code === 409 || e.code === 404 || e.code === 403)) {
+							// 房间已关闭 / 已被移出
 							this.exitLocal();
 							uni.showToast({ title: '房间已关闭', icon: 'none' });
 						}
 					}
 				};
 				this.pollTimer = setInterval(tick, POLL_INTERVAL);
+				// 独立计时器驱动进度显示（轮询返回 changed:false 时也能前进）
+				this.tickTimer = setInterval(() => {
+					this.tick = (this.tick + 1) % 1000000;
+				}, 500);
 				tick();
 			},
 			stopPolling() {
 				if (this.pollTimer) {
 					clearInterval(this.pollTimer);
 					this.pollTimer = null;
+				}
+				if (this.tickTimer) {
+					clearInterval(this.tickTimer);
+					this.tickTimer = null;
 				}
 			},
 			async command(action, payload = {}) {
@@ -414,10 +431,12 @@
 					uni.showToast({ title: '共享歌单是空的', icon: 'none' });
 					return;
 				}
+				// 以服务器推算位置为准，避免本机音频未就绪时上传 0
+				const pos = this.displayPosition;
 				if (this.state.is_playing) {
-					this.command('pause', { position_ms: player.currentTime });
+					this.command('pause', { position_ms: pos });
 				} else {
-					this.command('play', { index: this.state.queue_index, position_ms: player.currentTime });
+					this.command('play', { index: this.state.queue_index, position_ms: pos });
 				}
 			},
 			onSeek(e) {
@@ -680,6 +699,20 @@
 		padding: 8rpx 20rpx;
 		border-radius: 999rpx;
 		background: #ffffff;
+	}
+
+	.room-head-right {
+		display: flex;
+		align-items: center;
+		gap: 16rpx;
+	}
+
+	.add-btn {
+		font-size: 24rpx;
+		color: #ff4d4f;
+		background: #fff1f0;
+		border-radius: 999rpx;
+		padding: 10rpx 22rpx;
 	}
 
 	.sync-dot {

@@ -24,38 +24,48 @@ class SourceClient
         $base = rtrim((string)config('source.base_url', 'https://flac.music.hi.cn'), '/');
         $url = $base . '/ajax.php?act=' . rawurlencode($act);
         $body = http_build_query($params);
+        $lastError = '';
+        $timeout = (int)config('source.timeout', 15);
 
-        $ch = curl_init($url);
-        $options = [
-            CURLOPT_POST           => true,
-            CURLOPT_POSTFIELDS     => $body,
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT        => (int)config('source.timeout', 15),
-            CURLOPT_CONNECTTIMEOUT => 8,
-            CURLOPT_SSL_VERIFYPEER => true,
-            CURLOPT_HTTPHEADER     => [
-                'Content-Type: application/x-www-form-urlencoded; charset=UTF-8',
-                'Accept: application/json',
-            ],
-            CURLOPT_USERAGENT      => 'Mozilla/5.0 (Linux; Android 12; Mobile)',
-        ];
-        if (is_file(APP_ROOT . '/cacert.pem')) {
-            $options[CURLOPT_CAINFO] = APP_ROOT . '/cacert.pem';
-        }
-        curl_setopt_array($ch, $options);
-        $raw = curl_exec($ch);
-        $err = curl_error($ch);
-        $status = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
+        // 音源站偶发 TLS 握手失败/超时：最多重试 2 次
+        for ($attempt = 1; $attempt <= 3; $attempt++) {
+            $ch = curl_init($url);
+            $options = [
+                CURLOPT_POST           => true,
+                CURLOPT_POSTFIELDS     => $body,
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_TIMEOUT        => $timeout,
+                CURLOPT_CONNECTTIMEOUT => 8,
+                CURLOPT_SSL_VERIFYPEER => true,
+                CURLOPT_HTTPHEADER     => [
+                    'Content-Type: application/x-www-form-urlencoded; charset=UTF-8',
+                    'Accept: application/json',
+                ],
+                CURLOPT_USERAGENT      => 'Mozilla/5.0 (Linux; Android 12; Mobile)',
+            ];
+            if (is_file(APP_ROOT . '/cacert.pem')) {
+                $options[CURLOPT_CAINFO] = APP_ROOT . '/cacert.pem';
+            }
+            curl_setopt_array($ch, $options);
+            $raw = curl_exec($ch);
+            $err = curl_error($ch);
+            $status = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
 
-        if ($raw === false || $status !== 200) {
-            throw new RuntimeException('音源站请求失败: ' . ($err ?: ('HTTP ' . $status)));
+            if ($raw !== false && $status === 200) {
+                $data = json_decode((string)$raw, true);
+                if (is_array($data)) {
+                    return $data;
+                }
+                $lastError = '音源站返回数据无法解析';
+            } else {
+                $lastError = $raw === false ? $err : ('HTTP ' . $status);
+            }
+            if ($attempt < 3) {
+                usleep(300000 * $attempt); // 0.3s / 0.6s 退避
+            }
         }
-        $data = json_decode((string)$raw, true);
-        if (!is_array($data)) {
-            throw new RuntimeException('音源站返回数据无法解析');
-        }
-        return $data;
+        throw new RuntimeException('音源站请求失败: ' . ($lastError ?: '未知错误'));
     }
 
     private static function assertPlatform(string $platform): string
@@ -160,12 +170,22 @@ class SourceClient
         $page = max(1, $page);
         $cacheKey = 'search:' . $platform . ':' . $page . ':' . $keyword;
         return FileCache::remember($cacheKey, 120, function () use ($platform, $keyword, $page) {
-            $resp = self::post('search', [
-                'platform' => $platform,
-                'keyword'  => $keyword,
-                'page'     => $page,
-                'size'     => 20,
-            ]);
+            // 源站偶发返回 -1（接口异常），重试最多 3 次
+            $resp = null;
+            for ($try = 1; $try <= 3; $try++) {
+                $resp = self::post('search', [
+                    'platform' => $platform,
+                    'keyword'  => $keyword,
+                    'page'     => $page,
+                    'size'     => 20,
+                ]);
+                if ((int)($resp['code'] ?? -1) === 0) {
+                    break;
+                }
+                if ($try < 3) {
+                    usleep(400000 * $try);
+                }
+            }
             if ((int)($resp['code'] ?? -1) !== 0) {
                 fail(502, '搜索失败：' . (string)($resp['msg'] ?? '未知错误'), 502);
             }
@@ -227,14 +247,25 @@ class SourceClient
             if ($chosen === null) {
                 fail(404, '该歌曲暂无可用音质', 404);
             }
-            $resp = self::post('getUrl', [
-                'platform' => $platform,
-                'songid'   => $id,
-                'format'   => $chosen['format'],
-                'bitrate'  => (string)$chosen['bitrate'],
-                'time'     => $detail['time'],
-                'sign'     => $detail['sign'],
-            ]);
+            // 源站 getUrl 偶发 -1 / -3，重试（-3 时重新取 sign）
+            $resp = null;
+            for ($try = 1; $try <= 3; $try++) {
+                if ($try > 1) {
+                    $detail = self::detail($platform, $id);
+                }
+                $resp = self::post('getUrl', [
+                    'platform' => $platform,
+                    'songid'   => $id,
+                    'format'   => $chosen['format'],
+                    'bitrate'  => (string)$chosen['bitrate'],
+                    'time'     => $detail['time'],
+                    'sign'     => $detail['sign'],
+                ]);
+                if ((int)($resp['code'] ?? -1) === 0 && !empty($resp['data']['url'])) {
+                    break;
+                }
+                usleep(400000 * $try);
+            }
             if ((int)($resp['code'] ?? -1) !== 0) {
                 fail(502, '获取播放地址失败：' . (string)($resp['msg'] ?? '未知错误'), 502);
             }
