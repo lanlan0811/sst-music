@@ -3,7 +3,7 @@
 		<view class="login-bg"></view>
 		<view class="login-card">
 			<view class="brand">
-				<image class="logo" src="/static/cover-placeholder.png" mode="aspectFill" />
+				<image class="logo" src="/static/logo.png" mode="aspectFill" />
 				<text class="app-name">随身听</text>
 				<text class="app-slogan">想听的歌，随时在身边</text>
 			</view>
@@ -147,7 +147,7 @@
 		width: 120rpx;
 		height: 120rpx;
 		border-radius: 28rpx;
-		background: #ff4d4f;
+		background: #fdf6e3;
 	}
 
 	.app-name {
