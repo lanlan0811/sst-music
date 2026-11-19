@@ -7,3 +7,6 @@ server/config.php
 server/runtime/
 server/storage/
 *.log
+
+# client：本地私密配置（服务器地址等），不提交
+client/config.local.js

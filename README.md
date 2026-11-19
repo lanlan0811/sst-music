@@ -32,7 +32,8 @@ sst-music/
 │   ├── utils/               # request 请求封装 / audio 播放引擎 / lyrics LRC 解析
 │   │                        # download 下载 / room 房间操作 / layout 屏幕适配
 │   ├── static/              # 图标、logo、封面占位图
-│   ├── config.js            # 服务器地址（DEFAULT_BASE_URL）与常量
+│   ├── config.js            # 服务器地址解析逻辑与常量
+│   ├── config.local.example.js # 本地配置模板（复制为 config.local.js 填写，不入库）
 │   └── manifest.json        # 包名、权限、minSdk 31 / targetSdk 33
 ├── server/                  # PHP 后端
 │   ├── public/index.php     # Web 根目录入口
@@ -83,12 +84,12 @@ curl http://127.0.0.1:8100/api/health   # {"code":0,"msg":"ok",...}
 ### 客户端
 
 1. HBuilderX → 文件 → 导入 → 选择 **`client/`** 目录（不是仓库根目录）
-2. 修改 `client/config.js` 的 `DEFAULT_BASE_URL` 为线上地址，例如 `https://music.example.com/api`（末尾不带 `/`）
+2. 服务器地址**不写入仓库**：复制 `client/config.local.example.js` 为 `client/config.local.js`，把 `LOCAL_BASE_URL` 改为线上地址，例如 `https://music.example.com/api`（末尾不带 `/`）。`config.local.js` 已被 `.gitignore` 忽略，不会提交
 3. 运行到浏览器调试，或「发行 → 原生 App - 云打包」生成 APK
 
 本地联调：H5 在 `localhost` / `127.0.0.1` 访问时会自动指向 `http://127.0.0.1:8100/api`，无需改配置；后端已内置 CORS（`server/app/bootstrap.php` 的 `send_cors()`）。
 
-打包后也可在 App 内「我的 → 服务器地址」切换测试服/正式服，地址保存在本地存储，优先于默认值。
+地址优先级：App 内「我的 → 服务器地址」 > `config.local.js` > 本机调试地址 > `DEFAULT_BASE_URL`（占位默认值，仅作兜底，打包前请务必提供 `config.local.js`）。
 
 ## 接口概览
 

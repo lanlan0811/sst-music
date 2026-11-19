@@ -1,6 +1,18 @@
 // 全局配置：服务器地址等
-// 打包前把 DEFAULT_BASE_URL 改为你的线上地址（不要以 / 结尾）
+// 正式服务器地址不写进仓库：复制 config.local.example.js 为 config.local.js 后填写
 const DEFAULT_BASE_URL = 'https://your-domain.com/api';
+
+// 读取私密配置（config.local.js 已被 .gitignore 忽略，不会提交）
+function localBaseUrl() {
+	try {
+		const modules = import.meta.glob('./config.local.js', { eager: true });
+		const mod = modules['./config.local.js'];
+		if (mod && typeof mod.LOCAL_BASE_URL === 'string' && /^https?:\/\//.test(mod.LOCAL_BASE_URL)) {
+			return mod.LOCAL_BASE_URL.replace(/\/+$/, '');
+		}
+	} catch (e) {}
+	return '';
+}
 
 // 本地开发：H5 在 localhost 运行时默认指向本机后端（php -S 127.0.0.1:8100 -t public）
 function devBaseUrl() {
@@ -24,7 +36,7 @@ export function getBaseUrl() {
 			return saved.replace(/\/+$/, '');
 		}
 	} catch (e) {}
-	return devBaseUrl() || DEFAULT_BASE_URL;
+	return localBaseUrl() || devBaseUrl() || DEFAULT_BASE_URL;
 }
 
 export function setBaseUrl(url) {
