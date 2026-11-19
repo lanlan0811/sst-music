@@ -54,6 +54,10 @@ class SourceClient
 
             if ($raw !== false && $status === 200) {
                 $data = json_decode((string)$raw, true);
+                if (!is_array($data)) {
+                    // 源站偶发返回孤立代理项（\udcXX），PHP 会整包拒绝解析；清洗后重试
+                    $data = json_decode(self::sanitizeJson((string)$raw), true);
+                }
                 if (is_array($data)) {
                     return $data;
                 }
@@ -66,6 +70,33 @@ class SourceClient
             }
         }
         throw new RuntimeException('音源站请求失败: ' . ($lastError ?: '未知错误'));
+    }
+
+    /**
+     * 清洗非法 JSON：源站偶发把某个字节写成「孤立代理项」转义（如 \udca6），
+     * PHP 的 json_decode 会因整包非法而返回 null。处理方式：
+     *  - 合法的 UTF-16 代理对（\ud83d\ude00 这类 emoji）原样保留
+     *  - 孤立低位代理项（\udcXX）→ \u0001XX 标记，fixEncoding 再还原成原始字节 0xXX
+     *  - 孤立高位代理项（\ud8XX）→ 替换为 '?'
+     */
+    private static function sanitizeJson(string $raw): string
+    {
+        $fixed = preg_replace_callback(
+            '/\\\\u[dD][89abAB][0-9a-fA-F]{2}\\\\u[dD][c-fC-F][0-9a-fA-F]{2}'
+            . '|\\\\u[dD][c-fC-F]([0-9a-fA-F]{2})'
+            . '|\\\\u[dD][89abAB][0-9a-fA-F]{2}/',
+            static function (array $m): string {
+                if (strlen($m[0]) === 12) {
+                    return $m[0]; // 合法代理对
+                }
+                if (($m[1] ?? '') !== '') {
+                    return '\\u0001' . strtolower($m[1]); // 低位代理项 → 字节标记
+                }
+                return '?'; // 孤立高位代理项
+            },
+            $raw
+        );
+        return is_string($fixed) ? $fixed : $raw;
     }
 
     private static function assertPlatform(string $platform): string
@@ -81,15 +112,33 @@ class SourceClient
      * 乱码修复：源站偶尔把 UTF-8 字节按 GBK 解码（如「江南」→「姹熷崡」）。
      * 注意「》」等字符被误解码后会变成 €(U+20AC) 等 GBK 无法回编码的符号，
      * 因此按 GB18030 回编码（它是 GBK 的超集，覆盖 €），再校验是否为合法 UTF-8。
+     * sanitizeJson 放入的 \u0001xx 标记在此还原为原始字节（\x80-\xFF 段）。
      */
     private static function fixEncoding(string $s): string
     {
-        if ($s === '' || !preg_match('/[\x{3400}-\x{9FFF}]/u', $s)) {
+        if ($s === '') {
+            return $s;
+        }
+        $marked = str_contains($s, "\u{0001}");
+        if (!$marked && !preg_match('/[\x{3400}-\x{9FFF}]/u', $s)) {
             return $s;
         }
         foreach (['GB18030', 'GBK'] as $charset) {
             $fixed = @mb_convert_encoding($s, $charset, 'UTF-8');
-            if (!is_string($fixed) || $fixed === '' || !mb_check_encoding($fixed, 'UTF-8')) {
+            if (!is_string($fixed) || $fixed === '') {
+                continue;
+            }
+            if ($marked) {
+                $fixed = preg_replace_callback(
+                    '/\x01([0-9a-f]{2})/',
+                    static fn(array $m): string => chr(hexdec($m[1])),
+                    $fixed
+                );
+                if (!is_string($fixed)) {
+                    continue;
+                }
+            }
+            if (!mb_check_encoding($fixed, 'UTF-8')) {
                 continue;
             }
             // 修复结果必须仍含中文，且不含替换符，避免把正常中文误伤
@@ -99,6 +148,37 @@ class SourceClient
             return $fixed;
         }
         return $s;
+    }
+
+    /**
+     * LRC 歌词乱码修复：源站偶发整段歌词被按 GBK 误解码。
+     * 逐行处理，正常中文/英文行经校验后保持原样，不会误伤。
+     */
+    private static function fixLyric(string $lrc): string
+    {
+        if ($lrc === '') {
+            return $lrc;
+        }
+        $lines = preg_split('/\r\n|\n|\r/', $lrc);
+        if (!is_array($lines)) {
+            return $lrc;
+        }
+        $changed = false;
+        foreach ($lines as $i => $line) {
+            $fixed = self::fixEncoding($line);
+            // 修复失败时清掉 sanitizeJson 留下的控制符标记，避免前端显示异常
+            if (str_contains($fixed, "\u{0001}")) {
+                $stripped = preg_replace('/\x01[0-9a-f]{2}/', '', $fixed);
+                if (is_string($stripped)) {
+                    $fixed = $stripped;
+                }
+            }
+            if ($fixed !== $line) {
+                $lines[$i] = $fixed;
+                $changed = true;
+            }
+        }
+        return $changed ? implode("\n", $lines) : $lrc;
     }
 
     private static function httpsCover(?string $url): string
@@ -309,7 +389,8 @@ class SourceClient
             if ((int)($resp['code'] ?? -1) !== 0) {
                 return '';
             }
-            return is_string($resp['data'] ?? null) ? $resp['data'] : '';
+            $lrc = is_string($resp['data'] ?? null) ? $resp['data'] : '';
+            return self::fixLyric($lrc);
         });
     }
 }
