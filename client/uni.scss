@@ -1,0 +1,52 @@
+/**
+ * 随身听 设计变量
+ */
+
+/* 品牌色 */
+$brand: #ff4d4f;
+$brand-dark: #e63f41;
+$brand-light: #fff1f0;
+
+/* 主题色（覆盖 uni 内置） */
+$uni-color-primary: $brand;
+$uni-color-success: #22c55e;
+$uni-color-warning: #f59e0b;
+$uni-color-error: $brand;
+
+/* 文字 */
+$text-main: #1f2329;
+$text-sub: #646a73;
+$text-muted: #8f959e;
+$uni-text-color: $text-main;
+$uni-text-color-grey: $text-muted;
+
+/* 背景 */
+$bg-page: #f5f6f8;
+$bg-card: #ffffff;
+$bg-soft: #f0f1f4;
+$uni-bg-color-grey: $bg-page;
+$uni-bg-color-hover: $bg-soft;
+
+/* 边框 */
+$border-color: #e8eaed;
+$uni-border-color: $border-color;
+
+/* 圆角 */
+$radius-sm: 8rpx;
+$radius-md: 16rpx;
+$radius-lg: 24rpx;
+$uni-border-radius-lg: 12rpx;
+
+/* 间距 */
+$space-xs: 8rpx;
+$space-sm: 16rpx;
+$space-md: 24rpx;
+$space-lg: 32rpx;
+$space-xl: 48rpx;
+
+/* 字号 */
+$font-sm: 24rpx;
+$font-base: 28rpx;
+$font-md: 32rpx;
+$font-lg: 36rpx;
+$font-xl: 44rpx;

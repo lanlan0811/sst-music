@@ -1,3 +1,9 @@
 unpackage/
 .DS_Store
 .hbuilderx/
+
+# server
+server/config.php
+server/runtime/
+server/storage/
+*.log
