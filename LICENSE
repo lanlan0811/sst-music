@@ -1,0 +1,317 @@
+随身听 sst-music 非商业开源协议 1.0
+SST-Music Non-Commercial Open Source License 1.0
+
+版权所有 (c) 2026 lanlan0811 <lanaiw2025@163.com>
+Copyright (c) 2026 lanlan0811 <lanaiw2025@163.com>
+
+================================================================
+【中文版为准】本协议以中文版本为准；英文版本仅为方便阅读的参考译文。
+The Chinese version is the authoritative text. The English version is
+provided for convenience only.
+================================================================
+
+
+一、定义
+
+1.1 “本软件”指本仓库（sst-music）中包含的源代码、配置文件、脚本、
+    文档及其随附资源，以及由上述内容产生的衍生作品。
+
+1.2 “版权持有人”指上述著作权人 lanlan0811（GitHub：https://github.com/lanlan0811）。
+
+1.3 “商业用途”指以获取商业利益或金钱报酬为目的的任何使用，包括但不限于：
+    (a) 出售、出租、许可本软件或其衍生作品；
+    (b) 将本软件作为商品、服务或产品的一部分向第三方收取费用；
+    (c) 在应用商店（包括但不限于 Google Play、App Store、各安卓应用
+        市场、小程序平台）以付费下载、内购、广告变现或导流变现的
+        形式分发；
+    (d) 以本软件为基础提供付费托管、SaaS、订阅、咨询或技术支持服务；
+    (e) 在商业组织内部用于直接产生营业收入的生产经营活动；
+    (f) 以本软件作为引流工具，向付费产品或商业服务导流；
+    (g) 受第三方委托，有偿为其搭建、部署、定制或运维本软件。
+
+1.4 下列情形不属于商业用途：
+    (a) 个人学习、研究、实验与自我娱乐使用；
+    (b) 教学、学术研究、非营利开源项目中的使用；
+    (c) 公益组织、慈善机构的内部非营利使用；
+    (d) 不以任何直接或间接获利为目的、且不含广告与付费墙的免费分发。
+
+1.5 “衍生作品”指基于本软件全部或部分内容修改、翻译、改编、合并、
+    再发布所形成的作品。
+
+
+二、授权
+
+在遵守本协议全部条款的前提下，版权持有人授予你一项全球范围、免费、
+非独占、不可再许可的许可，允许你：
+
+2.1 使用、复制、修改本软件；
+2.2 将本软件与其它作品合并；
+2.3 发布、分发本软件及其衍生作品，但仅限非商业用途。
+
+
+三、条件：完整开源与注明来源
+
+3.1 你必须在所有副本与衍生作品中完整保留本协议全文及原有版权声明。
+
+3.2 你修改本软件时，必须在显著位置说明修改内容与修改日期。
+
+3.3 强制完整开源：你以任何方式分发本软件或其衍生作品（包括以编译后的
+    APK、二进制、安装包、容器镜像、在线服务等任何形式向他人提供）时：
+    (a) 必须一并提供完整、可直接编译运行的对应源代码，包括你所做的
+        全部修改，不得删减、混淆、加密或仅提供部分代码；
+    (b) 源代码须以公开、免费、可长期访问的方式提供（如公开代码仓库），
+        并在你分发作品的页面或文档中给出明确的获取地址；
+    (c) 若以在线服务形式提供，必须同时公开该服务所运行的完整源代码；
+    (d) 衍生作品必须继续以本协议（或版权持有人书面认可的兼容协议）
+        授权，不得附加任何额外限制。
+
+3.4 强制注明来源：任何使用、修改或分发（包括未作修改的转发）都必须以
+    显著且易于查看的方式注明：
+    (a) 原项目名称“随身听 sst-music”；
+    (b) 原作者 lanlan0811 及原始仓库地址
+        https://github.com/lanlan0811/sst-music；
+    (c) 本协议名称与链接。
+    注明位置包括但不限于：README 或说明文档、App 的“关于/我的”页面、
+    启动页或设置页、发布页面的项目描述。
+
+3.5 你不得移除、隐藏或篡改本软件中的版权声明、协议声明及作者标识，
+    不得以任何方式暗示你的改版为官方原版或获得原作者背书。
+
+3.6 不得增删或替换原作者署名；你的改版可在来源说明之后另行标注
+    “本版本由 XXX 基于原项目修改”。
+
+
+四、严禁商业化
+
+4.1 严禁商业使用：本软件及其衍生作品一律不得用于任何商业用途。
+    未经版权持有人事先书面许可，任何商业用途均被明确禁止。
+
+4.2 本协议不授予任何例外。任何形式的商业用途都不因“免费提供”“内测”
+    “非公开使用”“仅用于学习交流”等说法而豁免。
+
+4.3 本协议不授予任何商标、商号、标识的使用权；“随身听”“sst-music”
+    等名称与标识仅可用于对本软件来源的如实描述。
+
+4.4 如确需商业使用，须与版权持有人另行签订书面商业授权协议。
+
+4.5 违反本条即构成对本协议的根本违约，版权持有人有权依法追究责任。
+
+
+五、第三方内容与音源免责
+
+5.1 本协议仅覆盖版权持有人原创的源代码。本软件所访问、检索、播放或
+    下载的音乐作品、歌词、封面图片及其它内容，均来自第三方公开站点，
+    其著作权及相关权利归各自权利人所有，不属于本协议授权范围。
+
+5.2 版权持有人不对第三方内容的合法性、可用性、准确性作出任何保证。
+    使用者须自行确保其使用行为符合音源站服务条款及所在地法律法规。
+
+5.3 因使用本软件访问第三方内容而产生的任何法律责任，由使用者自行承担。
+
+
+六、无担保
+
+本软件按“现状”提供，不附加任何形式的明示或默示担保，包括但不限于
+对适销性、特定用途适用性、无侵权及不间断运行的担保。本软件可能存在
+缺陷，全部使用风险由你自行承担。
+
+
+七、责任限制
+
+在任何情况下，版权持有人均不对因使用或无法使用本软件而产生的任何
+直接、间接、偶然、特殊、惩罚性或后果性损害承担责任，包括但不限于
+数据丢失、设备损坏、业务中断、利润损失或第三方索赔，即使已被告知
+此类损害的可能性。
+
+
+八、终止
+
+8.1 你违反本协议任一条款（尤其是第四条严禁商业化、第三条开源与署名
+    义务）时，本协议授予你的全部权利立即自动终止。
+
+8.2 权利终止后，你应立即停止使用本软件、停止一切分发与在线服务，并
+    删除、销毁所有副本及衍生作品。
+
+8.3 版权持有人有权要求你公开致歉、下架相关作品并赔偿损失。
+
+8.4 第五条、第六条、第七条及第九条在协议终止后继续有效。
+
+
+九、其它
+
+9.1 本协议适用中华人民共和国法律（不含港澳台地区法律），并排除冲突
+    法规则的适用。
+
+9.2 本协议任一条款被认定为无效或不可执行的，不影响其余条款的效力，
+    该条款应在最小必要范围内被调整以实现其原意。
+
+9.3 版权持有人保留本协议未明确授予的一切权利。
+
+
+================================================================
+English Reference Translation (non-authoritative)
+================================================================
+
+SST-Music Non-Commercial Open Source License 1.0
+
+Copyright (c) 2026 lanlan0811 <lanaiw2025@163.com>
+
+1. Definitions
+
+1.1 "The Software" means the source code, configuration files, scripts,
+    documentation and accompanying assets contained in this repository
+    (sst-music), and any derivative work thereof.
+
+1.2 "Copyright Holder" means lanlan0811 (GitHub: https://github.com/lanlan0811).
+
+1.3 "Commercial Use" means any use for commercial advantage or monetary
+    compensation, including without limitation:
+    (a) selling, renting or licensing the Software or derivative works;
+    (b) charging third parties for the Software as part of a product or
+        service;
+    (c) distributing through app stores (including but not limited to
+        Google Play, the App Store, Android marketplaces, or mini-program
+        platforms) with paid downloads, in-app purchases, advertising,
+        or traffic monetization;
+    (d) offering paid hosting, SaaS, subscription, consulting or support
+        services based on the Software;
+    (e) use within a commercial organization in revenue-generating
+        production operations;
+    (f) using the Software as a traffic funnel to paid products or
+        commercial services;
+    (g) paid commissioning to build, deploy, customize or operate the
+        Software for a third party.
+
+1.4 The following are NOT Commercial Use:
+    (a) personal study, research, experimentation and private use;
+    (b) use in teaching, academic research, or non-profit open-source
+        projects;
+    (c) internal non-profit use by charities and public-interest
+        organizations;
+    (d) free distribution with no direct or indirect commercial gain and
+        without advertising or paywalls.
+
+1.5 "Derivative Work" means any work created by modifying, translating,
+    adapting, merging or redistributing all or part of the Software.
+
+2. Grant
+
+Subject to full compliance with this License, the Copyright Holder grants
+you a worldwide, royalty-free, non-exclusive, non-sublicensable license to
+use, copy and modify the Software; to combine it with other works; and to
+publish and distribute it and derivative works — for Non-Commercial
+purposes only.
+
+3. Conditions: Full Source and Attribution
+
+3.1 You must retain this License in full and all original copyright notices
+    in every copy and derivative work.
+
+3.2 You must prominently state the nature and date of any modifications.
+
+3.3 Mandatory full disclosure. Whenever you distribute the Software or a
+    derivative work in any form — including compiled APK, binaries,
+    installers, container images, or as an online service — you must:
+    (a) provide the complete, buildable corresponding source code,
+        including all of your modifications, with nothing removed,
+        obfuscated, encrypted or partially withheld;
+    (b) make that source code publicly, freely and durably available
+        (e.g. a public repository) and state its exact location in the
+        distribution page or documentation;
+    (c) if offered as an online service, publish the complete source code
+        that the service runs;
+    (d) license derivative works under this License, or a compatible
+        license approved in writing by the Copyright Holder, without
+        additional restrictions.
+
+3.4 Mandatory attribution. Any use, modification or distribution — even
+    unmodified redistribution — must prominently and visibly state:
+    (a) the original project name "随身听 sst-music";
+    (b) the original author lanlan0811 and the original repository
+        https://github.com/lanlan0811/sst-music;
+    (c) the name of and link to this License.
+    This applies to, without limitation, the README or documentation,
+    the App's "About" / "Profile" page, splash or settings screens, and
+    the project description of any release.
+
+3.5 You must not remove, obscure or alter copyright, license or authorship
+    notices, and must not imply that your fork is the official version or
+    is endorsed by the original author.
+
+3.6 You may add "This version is modified by XXX based on the original
+    project" after the attribution, but may not delete or replace the
+    original author's attribution.
+
+4. Strict Non-Commercial Restriction
+
+4.1 STRICTLY PROHIBITED. The Software and any derivative work must not be
+    used for any Commercial Use whatsoever. Without the prior written
+    permission of the Copyright Holder, all Commercial Use is expressly
+    forbidden.
+
+4.2 No exception applies. Commercial Use is not excused by characterizations
+    such as "free of charge", "beta", "private use" or "for learning only".
+
+4.3 No trademark or branding rights are granted. The names
+    "随身听" and "sst-music" may be used only to truthfully describe the
+    origin of the Software.
+
+4.4 Any commercial use requires a separate written commercial license
+    agreement with the Copyright Holder.
+
+4.5 Violation of this Section is a fundamental breach, and the Copyright
+    Holder may pursue all available legal remedies.
+
+5. Third-Party Content
+
+5.1 This License covers only the original source code of the Copyright
+    Holder. Music, lyrics, cover images and other content accessed through
+    the Software come from third-party public websites and remain the
+    property of their respective rights holders. They are not licensed
+    under this License.
+
+5.2 The Copyright Holder makes no warranty regarding the legality,
+    availability or accuracy of third-party content. Users are solely
+    responsible for complying with the source site's terms of service and
+    applicable law.
+
+6. No Warranty
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE, NON-INFRINGEMENT AND UNINTERRUPTED
+OPERATION. THE ENTIRE RISK AS TO USE IS BORNE BY YOU.
+
+7. Limitation of Liability
+
+IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY DIRECT, INDIRECT,
+INCIDENTAL, SPECIAL, EXEMPLARY OR CONSEQUENTIAL DAMAGES ARISING OUT OF OR
+IN CONNECTION WITH THE USE OR INABILITY TO USE THE SOFTWARE, INCLUDING BUT
+NOT LIMITED TO LOSS OF DATA, DEVICE DAMAGE, BUSINESS INTERRUPTION, LOSS OF
+PROFITS OR THIRD-PARTY CLAIMS, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+DAMAGES.
+
+8. Termination
+
+8.1 Your rights under this License terminate automatically upon any breach,
+    in particular of Section 4 (strict non-commercial) or Section 3 (full
+    source disclosure and attribution).
+
+8.2 Upon termination you must immediately cease all use, distribution and
+    online operation, and destroy all copies and derivative works.
+
+8.3 The Copyright Holder may require a public apology, takedown of the
+    work, and compensation for damages.
+
+8.4 Sections 5, 6, 7 and 9 survive termination.
+
+9. Miscellaneous
+
+9.1 This License is governed by the laws of the People's Republic of China,
+    excluding its conflict-of-law rules.
+
+9.2 If any provision is held invalid or unenforceable, the remaining
+    provisions remain in effect and the invalid provision shall be modified
+    to the minimum extent necessary to reflect its intent.
+
+9.3 All rights not expressly granted are reserved by the Copyright Holder.
