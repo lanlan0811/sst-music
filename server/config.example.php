@@ -10,9 +10,10 @@ return [
         'charset'  => 'utf8mb4',
     ],
     // 音源站根地址（末尾不带斜杠）
+    // timeout 单次请求上限（秒）：客户端整体超时为 15s，因此不要超过 8
     'source' => [
         'base_url' => 'https://flac.music.hi.cn',
-        'timeout'  => 15,
+        'timeout'  => 8,
     ],
     // 登录 token 有效期（秒），默认 30 天
     'token_ttl' => 2592000,

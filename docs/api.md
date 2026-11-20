@@ -92,6 +92,7 @@
 ### GET /api/song/url?platform=kuwo&id=539121879&quality=flac
 
 - `quality`：`flac` / `320` / `128`，缺省 flac；请求音质不可用时自动降级到最低可用音质
+- `refresh=1`（可选）：跳过服务端直链缓存，强制向音源站重新取一次。客户端播放失败重试时使用，绕开可能已临期的缓存直链
 
 返回：
 
@@ -104,12 +105,12 @@
     "bitrate": 2000,
     "duration": 273,
     "quality": "flac",
-    "expires_in": 80
+    "expires_in": 55
   }
 }
 ```
 
-> 直链有效期短（Token 防盗链），服务端缓存 80 秒。播放失败时重新请求本接口。
+> 直链有效期极短（Token 防盗链），服务端缓存 55 秒，`expires_in` 返回的是**剩余有效秒数**（命中缓存时会递减）。播放失败时建议带 `refresh=1` 重新请求本接口。
 
 ### GET /api/song/lyric?platform=kuwo&id=539121879
 

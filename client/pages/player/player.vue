@@ -38,11 +38,13 @@
 				<view class="progress-area">
 					<slider
 						class="slider"
-						:value="sliderValue"
+						:value="seeking ? dragValue : sliderValue"
 						:max="sliderMax"
 						:block-size="14"
+						:disabled="!player.duration"
 						active-color="#ff4d4f"
 						background-color="rgba(255,255,255,0.25)"
+						@changing="onChanging"
 						@change="onSeek"
 					/>
 					<view class="time-row">
@@ -58,8 +60,8 @@
 					<view class="ctrl" @click="prev">
 						<text class="ctrl-icon">⏮</text>
 					</view>
-					<view class="ctrl main" @click="toggle">
-						<text class="ctrl-icon large">{{ player.playing ? '❚❚' : '▶' }}</text>
+					<view class="ctrl main" :class="{ loading: player.loading }" @click="toggle">
+						<text class="ctrl-icon large">{{ player.loading ? '…' : player.playing ? '❚❚' : '▶' }}</text>
 					</view>
 					<view class="ctrl" @click="next">
 						<text class="ctrl-icon">⏭</text>
@@ -76,8 +78,10 @@
 					class="lyric-scroll"
 					scroll-y
 					:scroll-top="scrollTop"
-					:scroll-with-animation="true"
+					:scroll-with-animation="!userScrolling"
 					:show-scrollbar="false"
+					@touchstart="onUserScroll"
+					@scroll="onLyricScroll"
 				>
 					<view class="lyric-padding"></view>
 					<view
@@ -108,7 +112,7 @@
 
 <script>
 	import QualityPicker from '@/components/QualityPicker.vue';
-	import { player, onTrackChange, toggle, next, prev, seek, setQuality, cycleMode } from '@/store/player.js';
+	import { player, onTrackChange, toggle, next, prev, seek, setQuality as setQualityPref, cycleMode, playAt } from '@/store/player.js';
 	import { api } from '@/utils/request.js';
 	import { parseLrc, findLineIndex, formatTime } from '@/utils/lyrics.js';
 	import { getScreenInfo } from '@/utils/layout.js';
@@ -129,6 +133,10 @@
 				lyricId: '',
 				isTablet: false,
 				seeking: false,
+				dragValue: 0,
+				userScrolling: false,
+				scrollGuardTimer: null,
+				userScrollPos: 0,
 				pickerVisible: false,
 				unsubTrack: null
 			};
@@ -141,7 +149,7 @@
 				return { list: '🔁', single: '🔂', shuffle: '🔀' }[this.player.mode] || '🔁';
 			},
 			sliderMax() {
-				return Math.max(1, this.player.duration);
+				return this.player.duration > 0 ? this.player.duration : 1;
 			},
 			sliderValue() {
 				return Math.min(this.player.currentTime, this.sliderMax);
@@ -160,10 +168,10 @@
 			activeLineIndex(idx) {
 				if (idx === this.activeLine) return;
 				this.activeLine = idx;
-				// 每行约 96rpx（平板 64px），居中偏移
+				// 用户刚手动滚动过歌词：3 秒内不抢回，避免"刚滑就被拽回"的错觉
+				if (this.userScrolling) return;
 				const lineHeight = this.isTablet ? 64 : 48;
-				const target = Math.max(0, idx * lineHeight);
-				this.scrollTop = target;
+				this.applyAutoScroll(Math.max(0, idx * lineHeight));
 			},
 			current: {
 				handler() {
@@ -183,6 +191,7 @@
 		},
 		onUnload() {
 			if (this.unsubTrack) this.unsubTrack();
+			this.clearScrollGuard();
 		},
 		methods: {
 			formatTime,
@@ -191,7 +200,15 @@
 				next(false);
 			},
 			prev,
-			setQuality,
+			// 切换音质立即用新音质重载当前曲目（否则点了 chip 没有任何反馈）
+			setQuality(q) {
+				if (this.player.quality === q) return;
+				setQualityPref(q);
+				if (this.current) {
+					playAt(this.player.index, this.player.currentTime, { force: true });
+				}
+				uni.showToast({ title: '已切换音质', icon: 'none' });
+			},
 			toggleMode() {
 				const mode = cycleMode();
 				uni.showToast({ title: MODE_ICONS[mode] || mode, icon: 'none' });
@@ -206,8 +223,49 @@
 					}
 				});
 			},
+			onChanging(e) {
+				this.seeking = true;
+				this.dragValue = e.detail.value;
+			},
 			onSeek(e) {
+				this.seeking = false;
 				seek(e.detail.value);
+			},
+			onUserScroll() {
+				// 手指按下即视为手动接管：暂停自动跟随，3 秒无动作后恢复并重新对齐当前行
+				this.userScrolling = true;
+				this.clearScrollGuard();
+				this.scrollGuardTimer = setTimeout(() => {
+					this.scrollGuardTimer = null;
+					this.userScrolling = false;
+					const lineHeight = this.isTablet ? 64 : 48;
+					this.applyAutoScroll(Math.max(0, this.activeLine * lineHeight));
+				}, 3000);
+			},
+			onLyricScroll(e) {
+				// 记录用户滚到的实际位置，便于恢复时判断是否需要重新对齐
+				if (e && e.detail && typeof e.detail.scrollTop === 'number') {
+					this.userScrollPos = e.detail.scrollTop;
+				}
+			},
+			// scroll-view 的 scroll-top 是"值绑定"，值不变时不会滚动；相同目标需先偏移 1px
+			applyAutoScroll(target) {
+				const value = Math.max(0, target);
+				if (Math.abs(this.scrollTop - value) < 2) {
+					this.scrollTop = value > 0 ? value - 1 : 1;
+					this.$nextTick(() => {
+						this.scrollTop = value;
+					});
+				} else {
+					this.scrollTop = value;
+				}
+			},
+			clearScrollGuard() {
+				if (this.scrollGuardTimer) {
+					clearTimeout(this.scrollGuardTimer);
+					this.scrollGuardTimer = null;
+				}
+				this.userScrolling = false;
 			},
 			seekToLine(line) {
 				seek(line.time);
@@ -238,17 +296,18 @@
 			},
 			async onDownloadQuality(q) {
 				if (!this.current) return;
-				uni.showLoading({ title: '准备下载…', mask: true });
+				// 只开一层原生 loading：进度回调里反复 showLoading 会叠加遮罩，hideLoading 只关一层
+				uni.showLoading({ title: '下载中…', mask: true });
+				let ok = false;
 				try {
-					await downloadSong(this.current, q.quality, (percent) => {
-						uni.showLoading({ title: `下载中 ${percent}%`, mask: true });
-					});
-					uni.hideLoading();
-					uni.showToast({ title: '下载完成', icon: 'success' });
+					await downloadSong(this.current, q.quality);
+					ok = true;
 				} catch (e) {
-					uni.hideLoading();
 					uni.showToast({ title: (e && e.message) || '下载失败', icon: 'none' });
+				} finally {
+					uni.hideLoading();
 				}
+				if (ok) uni.showToast({ title: '下载完成', icon: 'success' });
 			}
 		}
 	};
@@ -256,7 +315,7 @@
 
 <style scoped>
 	.player-page {
-		min-height: 100vh;
+		height: 100vh;
 		background: #111318;
 		color: #ffffff;
 		position: relative;
@@ -273,6 +332,8 @@
 		filter: blur(60px) brightness(0.45);
 		transform: scale(1.2);
 		z-index: 0;
+		/* 纯装饰层，不能吞掉顶部/边缘的点击 */
+		pointer-events: none;
 	}
 
 	.status-bar-spacer {
@@ -331,13 +392,15 @@
 
 	.cover-wrap {
 		align-self: center;
-		width: 480rpx;
-		height: 480rpx;
+		/* 矮屏/横屏自动收缩，给歌词与控制区留出空间 */
+		width: clamp(240rpx, 40vh, 480rpx);
+		height: clamp(240rpx, 40vh, 480rpx);
 		border-radius: 50%;
 		overflow: hidden;
 		border: 12rpx solid rgba(255, 255, 255, 0.08);
 		animation: spin 24s linear infinite;
 		margin-top: 24rpx;
+		flex-shrink: 0;
 	}
 
 	.cover-wrap.paused {
@@ -446,6 +509,11 @@
 		height: 128rpx;
 		background: #ff4d4f;
 		box-shadow: 0 8rpx 32rpx rgba(255, 77, 79, 0.45);
+	}
+
+	/* 取地址/缓冲时给出可感知的反馈，避免"点了没反应" */
+	.ctrl.main.loading {
+		opacity: 0.65;
 	}
 
 	.ctrl-icon.large {

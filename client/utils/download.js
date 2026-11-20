@@ -49,10 +49,36 @@ function enqueue(task) {
 	return run;
 }
 
+// 下载无进展超时（毫秒）：厂家 ROM 在切后台/切换网络时可能不再回调，必须兜底 reject
+const DOWNLOAD_IDLE_TIMEOUT = 60000;
+
 function downloadFile(url, savePath, onProgress) {
 	return new Promise((resolve, reject) => {
 		// #ifdef APP-PLUS
-		const task = plus.downloader.createDownload(url, { filename: savePath }, (d, status) => {
+		let settled = false;
+		let idleTimer = null;
+		let task = null;
+		const clearIdleTimer = () => {
+			if (idleTimer) {
+				clearTimeout(idleTimer);
+				idleTimer = null;
+			}
+		};
+		const armIdleTimer = () => {
+			clearIdleTimer();
+			idleTimer = setTimeout(() => {
+				if (settled) return;
+				settled = true;
+				try {
+					if (task) task.abort();
+				} catch (e) {}
+				reject(new Error('下载超时，请检查网络后重试'));
+			}, DOWNLOAD_IDLE_TIMEOUT);
+		};
+		task = plus.downloader.createDownload(url, { filename: savePath }, (d, status) => {
+			if (settled) return;
+			settled = true;
+			clearIdleTimer();
 			if (status === 200 || status === 206) {
 				resolve(d.filename);
 			} else {
@@ -60,10 +86,13 @@ function downloadFile(url, savePath, onProgress) {
 			}
 		});
 		task.addEventListener('statechanged', (d) => {
+			if (settled) return;
+			armIdleTimer();
 			if (d.state === 3 && d.totalSize > 0 && onProgress) {
 				onProgress(Math.floor((d.downloadedSize / d.totalSize) * 100));
 			}
 		});
+		armIdleTimer();
 		task.start();
 		// #endif
 		// #ifndef APP-PLUS

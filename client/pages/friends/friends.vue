@@ -122,23 +122,26 @@
 			},
 			async inviteListen(f) {
 				uni.showLoading({ title: '创建房间…', mask: true });
+				let room = null;
 				try {
-					const room = await api.roomCreate(f.id);
-					uni.hideLoading();
-					uni.showModal({
-						title: '房间已创建',
-						content: `邀请码：${room.code}\n把邀请码发给好友，或让好友在「一起听」页直接加入。`,
-						confirmText: '去房间',
-						success: (res) => {
-							if (res.confirm) {
-								uni.setStorageSync('sst_room_id', room.room_id);
-								uni.switchTab({ url: '/pages/room/room' });
-							}
-						}
-					});
+					room = await api.roomCreate(f.id);
 				} catch (e) {
+					room = null; // 失败提示由 request 统一弹出
+				} finally {
 					uni.hideLoading();
 				}
+				if (!room) return;
+				uni.showModal({
+					title: '房间已创建',
+					content: `邀请码：${room.code}\n把邀请码发给好友，或让好友在「一起听」页直接加入。`,
+					confirmText: '去房间',
+					success: (res) => {
+						if (res.confirm) {
+							uni.setStorageSync('sst_room_id', room.room_id);
+							uni.switchTab({ url: '/pages/room/room' });
+						}
+					}
+				});
 			},
 			async joinFriendRoom(f) {
 				// 好友在房间中 → 直接尝试加入其房间（按房间码）

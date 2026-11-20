@@ -3,6 +3,8 @@
 
 let ctx = null;
 const listeners = {};
+// 每次 setSource 自增，用于忽略上一次遗留的 canplay/超时回调
+let sourceToken = 0;
 
 function emit(name, payload) {
 	(listeners[name] || []).forEach((fn) => {
@@ -44,16 +46,41 @@ export function setSource(src, { startTime = 0, autoplay = true, volume = 1 } = 
 	c.stop();
 	c.src = src;
 	c.volume = volume;
-	if (startTime > 0) {
-		// 部分机型需要等 canplay 再 seek
-		const off = on('canplay', () => {
+	// 部分机型 stop() 后立刻 play() 不会启动，需等 canplay；同时用超时兜底，避免永远无声
+	const token = ++sourceToken;
+	let done = false;
+	let timer = null;
+	let offCanplay = null;
+	const finish = (shouldSeek) => {
+		if (done) return;
+		done = true;
+		if (timer) {
+			clearTimeout(timer);
+			timer = null;
+		}
+		if (offCanplay) {
+			offCanplay();
+			offCanplay = null;
+		}
+		// 已被更新的 setSource 取代：只做清理，不再操作播放器
+		if (token !== sourceToken) return;
+		if (shouldSeek && startTime > 0) {
 			try {
 				c.seek(startTime);
-			} catch (e) {}
-			off();
-		});
-	}
-	if (autoplay) c.play();
+			} catch (e) {
+				console.warn('[audio] seek failed', e);
+			}
+		}
+		if (autoplay) {
+			try {
+				c.play();
+			} catch (e) {
+				console.warn('[audio] play failed', e);
+			}
+		}
+	};
+	offCanplay = on('canplay', () => finish(true));
+	timer = setTimeout(() => finish(false), 8000);
 }
 
 export function play() {
@@ -61,17 +88,21 @@ export function play() {
 }
 
 export function pause() {
+	sourceToken++; // 主动暂停后，未决的起播回调不应再自动 play
 	getContext().pause();
 }
 
 export function stop() {
+	sourceToken++; // 作废未决的 canplay/超时回调
 	getContext().stop();
 }
 
 export function seek(ms) {
 	try {
 		getContext().seek(Math.max(0, ms / 1000));
-	} catch (e) {}
+	} catch (e) {
+		console.warn('[audio] seek failed', e);
+	}
 }
 
 export function setVolume(v) {

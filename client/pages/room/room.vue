@@ -81,11 +81,12 @@
 					<view class="progress-area">
 						<slider
 							class="slider"
-							:value="sliderValue"
+							:value="seeking ? dragValue : sliderValue"
 							:max="sliderMax"
 							:block-size="14"
 							active-color="#ff4d4f"
 							background-color="#e8eaed"
+							@changing="onChanging"
 							@change="onSeek"
 						/>
 						<view class="time-row">
@@ -162,7 +163,9 @@
 				localOffset: 0,
 				syncState: 'idle',
 				playingIndexLoaded: -1,
-				lastCommandAt: 0
+				lastCommandAt: 0,
+				seeking: false,
+				dragValue: 0
 			};
 		},
 		computed: {
@@ -187,7 +190,7 @@
 				return Math.max(1, this.currentDuration);
 			},
 			sliderValue() {
-				return Math.min(this.displayPosition, this.sliderMax);
+				return this.seeking ? this.dragValue : Math.min(this.displayPosition, this.sliderMax);
 			},
 			displayPosition() {
 				// tick 为 500ms 一次的响应式计数器，保证播放中时间持续前进
@@ -202,6 +205,13 @@
 				return player;
 			}
 		},
+		onLoad() {
+			// 只注册一次：若在 onShow 注册、onHide 注销，去播放页（tab 页 onHide）
+			// 会导致播放页的一起听按钮失去接收方，表现就是"点了没反应"
+			uni.$on('sst_add_to_room', this.handleExternalAdd);
+			uni.$on('sst_remote_ended', this.handleRemoteEnded);
+			uni.$on('sst_remote_toggle', this.handleRemoteToggle);
+		},
 		onShow() {
 			if (!user.loggedIn) return;
 			this.isTablet = getScreenInfo().isTablet;
@@ -211,15 +221,14 @@
 			} else {
 				this.loadFriends();
 			}
-			uni.$on('sst_add_to_room', this.handleExternalAdd);
-			uni.$on('sst_remote_ended', this.handleRemoteEnded);
-			uni.$on('sst_remote_toggle', this.handleRemoteToggle);
+			// 从播放页返回时轮询可能已停止，重新启动
+			if (this.room && !this.pollTimer) {
+				this.startPolling();
+			}
 		},
 		onHide() {
+			// 仅停止轮询；远程事件监听保留在 onLoad → onUnload 生命周期内
 			this.stopPolling();
-			uni.$off('sst_add_to_room', this.handleExternalAdd);
-			uni.$off('sst_remote_ended', this.handleRemoteEnded);
-			uni.$off('sst_remote_toggle', this.handleRemoteToggle);
 		},
 		onUnload() {
 			this.stopPolling();
@@ -255,13 +264,17 @@
 			},
 			async createRoom(f) {
 				uni.showLoading({ title: '创建房间…', mask: true });
+				let room = null;
 				try {
-					const room = await api.roomCreate(f.id);
+					room = await api.roomCreate(f.id);
+				} catch (e) {
+					room = null; // 失败提示已由 request 统一弹出
+				} finally {
 					uni.hideLoading();
+				}
+				if (room) {
 					this.enterRoom({ room_id: room.room_id, code: room.code });
 					uni.showToast({ title: `邀请码 ${room.code}`, icon: 'none', duration: 3000 });
-				} catch (e) {
-					uni.hideLoading();
 				}
 			},
 			async joinByCode() {
@@ -415,6 +428,8 @@
 					const snap = await api.roomCommand(this.room.room_id, this.version, action, payload);
 					this.applySnapshot(snap);
 				} catch (e) {
+					// 409 冲突的新快照由 request 抛出的 e.data 带回；roomCommand 是 silent，
+					// 因此这里必须自己给用户可见反馈，否则就是"点了没反应"
 					if (e && e.code === 409 && e.data) {
 						this.applySnapshot(e.data);
 						uni.showToast({ title: '已同步到最新状态', icon: 'none' });
@@ -423,6 +438,8 @@
 						uni.showToast({ title: '房间已关闭', icon: 'none' });
 					} else if (e && e.msg) {
 						uni.showToast({ title: e.msg, icon: 'none' });
+					} else {
+						uni.showToast({ title: '操作失败，请重试', icon: 'none' });
 					}
 				}
 			},
@@ -439,8 +456,15 @@
 					this.command('play', { index: this.state.queue_index, position_ms: pos });
 				}
 			},
+			onChanging(e) {
+				this.seeking = true;
+				this.dragValue = e.detail.value;
+			},
 			onSeek(e) {
-				this.command('seek', { position_ms: e.detail.value });
+				const value = e.detail.value;
+				this.dragValue = value;
+				this.seeking = false;
+				this.command('seek', { position_ms: value });
 			},
 			addSong(song) {
 				return this.command('add_song', {
@@ -904,7 +928,8 @@
 	}
 
 	.queue-scroll {
-		max-height: 520rpx;
+		/* scroll-view 需要确定高度才会产生滚动容器，max-height 在多数机型下不生效 */
+		height: 520rpx;
 	}
 
 	.queue-item {
@@ -978,7 +1003,7 @@
 			padding: 20px;
 		}
 		.is-tablet .queue-scroll {
-			max-height: 560px;
+			height: 560px;
 		}
 	}
 </style>

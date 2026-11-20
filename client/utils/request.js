@@ -34,11 +34,11 @@ function toLogin() {
 
 /**
  * 统一请求封装
- * @param {Object} opts { url, method, data, auth(是否必须登录), silent(失败不弹toast) }
+ * @param {Object} opts { url, method, data, auth(是否必须登录), silent(失败不弹toast), timeout(毫秒) }
  * @returns Promise<data>
  */
 export function request(opts) {
-	const { url, method = 'GET', data = {}, auth = false, silent = false } = opts;
+	const { url, method = 'GET', data = {}, auth = false, silent = false, timeout = 20000 } = opts;
 	const token = getToken();
 	if (auth && !token) {
 		toLogin();
@@ -53,7 +53,7 @@ export function request(opts) {
 				'Content-Type': 'application/json',
 				...(token ? { Authorization: 'Bearer ' + token } : {})
 			},
-			timeout: 20000,
+			timeout,
 			success: (res) => {
 				const body = res.data || {};
 				if (res.statusCode === 401) {
@@ -75,10 +75,13 @@ export function request(opts) {
 				reject(err);
 			},
 			fail: (e) => {
+				const raw = String((e && e.errMsg) || '');
+				const isTimeout = /timeout|abort/i.test(raw);
+				const msg = isTimeout ? '网络超时，请稍后重试' : '网络异常，请检查网络或服务器地址';
 				if (!silent) {
-					uni.showToast({ title: '网络异常，请检查服务器地址', icon: 'none' });
+					uni.showToast({ title: msg, icon: 'none' });
 				}
-				reject({ code: -1, msg: e.errMsg || '网络异常' });
+				reject({ code: -1, msg, raw });
 			}
 		});
 	});
@@ -91,14 +94,21 @@ export const api = {
 	me: () => request({ url: '/user/me', auth: true, silent: true }),
 	updateProfile: (nickname) => request({ url: '/user/profile', method: 'PUT', data: { nickname }, auth: true }),
 	search: (platform, keyword, page) =>
-		request({ url: `/search?platform=${platform}&keyword=${encodeURIComponent(keyword)}&page=${page}` }),
-	songUrl: (platform, id, quality) =>
 		request({
-			url: `/song/url?platform=${platform}&id=${encodeURIComponent(id)}&quality=${quality || ''}`,
+			url: `/search?platform=${platform}&keyword=${encodeURIComponent(keyword)}&page=${page}`,
+			timeout: 15000,
+			silent: true
+		}),
+	songUrl: (platform, id, quality, opts = {}) =>
+		request({
+			url:
+				`/song/url?platform=${platform}&id=${encodeURIComponent(id)}&quality=${quality || ''}` +
+				(opts.force ? '&refresh=1' : ''),
+			timeout: 15000,
 			silent: true
 		}),
 	songLyric: (platform, id) =>
-		request({ url: `/song/lyric?platform=${platform}&id=${encodeURIComponent(id)}`, silent: true }),
+		request({ url: `/song/lyric?platform=${platform}&id=${encodeURIComponent(id)}`, timeout: 15000, silent: true }),
 	friends: () => request({ url: '/friends', auth: true }),
 	friendRequests: () => request({ url: '/friends/requests', auth: true }),
 	addFriend: (username) => request({ url: '/friends/request', method: 'POST', data: { username }, auth: true }),

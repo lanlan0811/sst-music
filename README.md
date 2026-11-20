@@ -84,8 +84,11 @@ curl http://127.0.0.1:8100/api/health   # {"code":0,"msg":"ok",...}
 ### 客户端
 
 1. HBuilderX → 文件 → 导入 → 选择 **`client/`** 目录（不是仓库根目录）
-2. 服务器地址**不写入仓库**：复制 `client/config.local.example.js` 为 `client/config.local.js`，把 `LOCAL_BASE_URL` 改为线上地址，例如 `https://music.example.com/api`（末尾不带 `/`）。`config.local.js` 已被 `.gitignore` 忽略，不会提交
-3. 运行到浏览器调试，或「发行 → 原生 App - 云打包」生成 APK
+2. **HBuilderX 版本必须与手机端 SDK 一致**：使用 **5.34 或更高** 打开工程。用旧版本编译器打出的包，在较新的手机上会提示「本应用使用 HBuilderX x.xx 编译，而手机端 SDK 版本是 y.yy」，并可能引起运行时异常。仓库不锁定 HBuilderX 版本，升级后请注意重新打包，不要复用旧产物
+3. 打包前清理 `client/unpackage/dist/build`、`client/unpackage/cache/wgt`、`client/unpackage/cache/apk`（均已被 `.gitignore` 忽略），避免旧版本编译产物被复用
+4. 服务器地址**不写入仓库**：复制 `client/config.local.example.js` 为 `client/config.local.js`，把 `LOCAL_BASE_URL` 改为线上地址，例如 `https://music.example.com/api`（末尾不带 `/`）。`config.local.js` 已被 `.gitignore` 忽略，不会提交
+5. 运行到浏览器调试，或「发行 → 原生 App - 云打包」生成 APK
+6. 打包后校验：`client/unpackage/dist/build/app-plus/manifest.json` 中的 `compilerVersion` 应与本机 HBuilderX 版本一致，否则说明仍在用旧产物
 
 本地联调：H5 在 `localhost` / `127.0.0.1` 访问时会自动指向 `http://127.0.0.1:8100/api`，无需改配置；后端已内置 CORS（`server/app/bootstrap.php` 的 `send_cors()`）。
 
@@ -112,9 +115,11 @@ curl http://127.0.0.1:8100/api/health   # {"code":0,"msg":"ok",...}
 
 音源站接口为 `POST https://flac.music.hi.cn/ajax.php?act=<act>`，签名 `sign` 绑定 `platform+songid+time`，无法离线复算，因此全部由后端 `SourceClient.php` 现取现用：
 
-- 直链缓存 **80 秒**（源站防盗链短时效；播放失败时客户端自动重取一次）
+- 客户端**直接播放音源站直链**，后端不代理音频流；直链时效极短
+- 直链缓存 **55 秒**（源站防盗链短时效）。客户端忽略缓存也行：播放失败时会自动**降级音质**（flac → 320 → 128）并带 `refresh=1` **强制重取**，绕开可能已临期的缓存直链
 - 歌词缓存 **24 小时**，搜索缓存 **2 分钟**
-- 音源站偶发 TLS 失败/返回 `-1`，内部最多重试 3 次并退避
+- 单次源站请求超时 **8 秒**、最多 2 次尝试，接口整体预算 12 秒，以配合客户端 15 秒超时
+- 音源站偶发 TLS 失败/返回 `-1`，内部重试并退避
 - 部分中文关键词在源站返回空结果或乱码，后端已做可逆编码修复（GBK 误判还原），客户端提示切换平台或换关键词
 - 仅支持 `kuwo`（酷我）与 `wyy`（网易）两个平台；封面统一转为 `https://`
 

@@ -174,6 +174,7 @@
 					this.hasMore = this.list.length >= 20;
 				} catch (e) {
 					this.list = [];
+					uni.showToast({ title: (e && e.msg) || '搜索失败，请稍后重试', icon: 'none', duration: 2500 });
 				} finally {
 					this.loading = false;
 				}
@@ -191,6 +192,7 @@
 					this.page = page;
 					this.hasMore = more.length >= 20;
 				} catch (e) {
+					uni.showToast({ title: (e && e.msg) || '加载更多失败', icon: 'none' });
 				} finally {
 					this.loading = false;
 				}
@@ -237,17 +239,18 @@
 			async onQualityPicked(q) {
 				const song = this.picker.song;
 				if (!song) return;
-				uni.showLoading({ title: '准备下载…', mask: true });
+				// 只开一层原生 loading：进度回调里重复 showLoading 会叠加遮罩，hideLoading 只关一层
+				uni.showLoading({ title: '下载中…', mask: true });
+				let ok = false;
 				try {
-					await downloadSong(song, q.quality, (percent) => {
-						uni.showLoading({ title: `下载中 ${percent}%`, mask: true });
-					});
-					uni.hideLoading();
-					uni.showToast({ title: '下载完成', icon: 'success' });
+					await downloadSong(song, q.quality);
+					ok = true;
 				} catch (e) {
-					uni.hideLoading();
 					uni.showToast({ title: (e && e.message) || '下载失败', icon: 'none' });
+				} finally {
+					uni.hideLoading();
 				}
+				if (ok) uni.showToast({ title: '下载完成', icon: 'success' });
 			},
 			async addToRoom(song) {
 				const res = await addSongToRoom(song);

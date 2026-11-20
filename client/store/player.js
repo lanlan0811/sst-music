@@ -28,6 +28,7 @@ export const player = reactive({
 	index: -1,
 	playing: false,
 	loading: false,
+	buffering: false,
 	currentTime: 0,
 	duration: 0,
 	quality: loadQuality(),
@@ -39,9 +40,37 @@ export const player = reactive({
 });
 
 let playToken = 0;
-let pendingSeek = 0;
 let remoteMode = false; // 一起听时由房间控制
 const trackListeners = [];
+
+// 播放失败自动降级：同一首歌最多重试 2 次（flac → 320 → 128）
+const QUALITY_ORDER = ['flac', '320', '128'];
+const retryState = { key: '', level: 0 };
+let retrying = false;
+let pendingQuality = ''; // 降级重试时临时使用的音质
+let watchdogTimer = null;
+const WATCHDOG_MS = 12000;
+
+function songKey(song) {
+	return song ? song.platform + '_' + song.id : '';
+}
+
+function clearWatchdog() {
+	if (watchdogTimer) {
+		clearTimeout(watchdogTimer);
+		watchdogTimer = null;
+	}
+}
+
+function armWatchdog(token) {
+	clearWatchdog();
+	watchdogTimer = setTimeout(() => {
+		watchdogTimer = null;
+		if (token !== playToken) return;
+		if (!player.loading) return; // 已起播
+		handlePlayFailure(token, { msg: '起播超时' });
+	}, WATCHDOG_MS);
+}
 
 export function onTrackChange(fn) {
 	trackListeners.push(fn);
@@ -55,9 +84,30 @@ audio.on('timeupdate', (t) => {
 	player.currentTime = Math.floor((t.currentTime || 0) * 1000);
 	if (t.duration > 0) player.duration = Math.floor(t.duration * 1000);
 });
-audio.on('play', () => (player.playing = true));
-audio.on('pause', () => (player.playing = false));
-audio.on('stop', () => (player.playing = false));
+audio.on('canplay', () => {
+	player.buffering = false;
+	// 远程/暂停场景没有 play 事件，这里兜底结束 loading
+	player.loading = false;
+	clearWatchdog();
+});
+audio.on('play', () => {
+	player.playing = true;
+	player.loading = false;
+	player.buffering = false;
+	clearWatchdog();
+});
+audio.on('pause', () => {
+	player.playing = false;
+	player.loading = false;
+	clearWatchdog();
+});
+// 注意：setSource 内部会调用 stop()，因此这里不能清 loading，否则起播动画立刻消失
+audio.on('stop', () => {
+	player.playing = false;
+	player.buffering = false;
+});
+audio.on('waiting', () => (player.buffering = true));
+audio.on('seeked', () => (player.buffering = false));
 audio.on('ended', () => {
 	if (remoteMode) {
 		// 一起听：由房间页广播"本曲结束"，由服务器决定下一首
@@ -66,19 +116,58 @@ audio.on('ended', () => {
 	}
 	next(true);
 });
-// 直链过期等错误：自动重取一次
-let retried = false;
-audio.on('error', async () => {
-	if (remoteMode || !player.current) return;
-	if (retried) {
-		retried = false;
-		player.playing = false;
-		uni.showToast({ title: '播放失败，请重试', icon: 'none' });
+
+/**
+ * 播放失败处理：本机模式下自动降级音质并强制重取直链；
+ * 一起听模式交给房间页轮询恢复，避免本机重试与房间同步互相打架。
+ */
+function handlePlayFailure(token, info) {
+	if (token !== playToken) return;
+	clearWatchdog();
+	player.loading = false;
+	player.buffering = false;
+	if (remoteMode) {
+		console.warn('[player] remote play failure', info);
 		return;
 	}
-	retried = true;
-	await playAt(player.index, player.currentTime, { retry: true });
-	setTimeout(() => (retried = false), 3000);
+	const song = player.current;
+	if (!song) {
+		player.playing = false;
+		return;
+	}
+	const key = songKey(song);
+	if (retryState.key !== key) {
+		retryState.key = key;
+		retryState.level = 0;
+	}
+	const currentIdx = QUALITY_ORDER.indexOf(player.quality);
+	const baseIdx = currentIdx >= 0 ? currentIdx : 0;
+	// 即使已经是用户选的最低音质，也允许用 force 重取一次直链（绕过临期缓存）
+	if (retryState.level < 2 && !retrying) {
+		retrying = true;
+		retryState.level++;
+		const targetIdx = Math.min(baseIdx + retryState.level, QUALITY_ORDER.length - 1);
+		pendingQuality = QUALITY_ORDER[targetIdx];
+		playAt(player.index, player.currentTime, { retry: true, force: true })
+			.catch(() => {})
+			.finally(() => {
+				setTimeout(() => (retrying = false), 800);
+			});
+		return;
+	}
+	retrying = false;
+	player.playing = false;
+	uni.showToast({ title: '播放失败，请检查网络后重试', icon: 'none' });
+}
+
+let lastSourceAt = 0;
+
+audio.on('error', (e) => {
+	const msg = e && (e.errMsg || e.errCode) ? e.errMsg || 'code ' + e.errCode : 'unknown';
+	console.error('[player] audio error', msg);
+	// 切歌瞬间的旧音源错误（<1s）不计入本首的失败统计
+	if (Date.now() - lastSourceAt < 1000) return;
+	handlePlayFailure(playToken, { msg });
 });
 
 export function setRemoteMode(on) {
@@ -111,47 +200,71 @@ function pickQuality(song, wanted) {
  * 播放队列中的第 index 首
  * @param {number} index
  * @param {number} positionMs 起播位置
- * @param {Object} opts { retry }
+ * @param {Object} opts { retry 失败后重试, force 绕过服务端短缓存 }
  */
 export async function playAt(index, positionMs = 0, opts = {}) {
 	if (index < 0 || index >= player.queue.length) return;
 	const song = player.queue[index];
+	const force = !!opts.force;
 	player.index = index;
 	player.currentTime = positionMs;
 	player.duration = (song.duration || 0) * 1000;
 	player.loading = true;
+	player.buffering = false;
+	// 用户主动起播（非自动重试）时重置该曲的降级计数，并清掉上首残留的降级音质
+	if (!opts.retry) {
+		retryState.key = songKey(song);
+		retryState.level = 0;
+		pendingQuality = '';
+	}
 	const token = ++playToken;
 	trackListeners.forEach((fn) => fn(song));
 	notifyBar();
 
-	// 本地下载优先
+	// 本地下载优先（离线可用，无需重试）
 	const local = getLocalRecord(song.platform, song.id);
 	if (local) {
-		player.loading = false;
+		pendingQuality = '';
+		lastSourceAt = Date.now();
 		audio.setSource(toLocalUrl(local.musicPath), { startTime: positionMs / 1000, autoplay: true });
+		armWatchdog(token);
 		return;
 	}
 	try {
-		const quality = pickQuality(song, player.quality);
-		const data = await api.songUrl(song.platform, song.id, quality);
+		// 降级重试时优先用 pendingQuality，其次用用户偏好
+		const wanted = pendingQuality || player.quality;
+		const quality = pickQuality(song, wanted);
+		const data = await api.songUrl(song.platform, song.id, quality, { force });
 		if (token !== playToken) return;
-		player.loading = false;
+		// 起播成功后再清空降级音质，避免残留影响下一首
+		pendingQuality = '';
+		lastSourceAt = Date.now();
 		audio.setSource(data.url, { startTime: positionMs / 1000, autoplay: true });
+		// 取地址阶段已有 15s 请求超时，这里只监控"已下发音源但迟迟不出声"
+		armWatchdog(token);
 	} catch (e) {
 		if (token !== playToken) return;
+		pendingQuality = '';
+		clearWatchdog();
 		player.loading = false;
 		player.playing = false;
-		uni.showToast({ title: (e && e.msg) || '获取播放地址失败', icon: 'none' });
+		if (opts.retry) {
+			// 第二次失败才提示，避免一次网络抖动就弹两次 toast
+			uni.showToast({ title: (e && e.msg) || '播放失败，请稍后重试', icon: 'none' });
+		} else {
+			uni.showToast({ title: (e && e.msg) || '获取播放地址失败', icon: 'none' });
+		}
 	}
 }
 
 export function toggle() {
 	if (!player.current) return;
 	if (player.remote) {
-		// 一起听模式下不直接控制，交由房间页发指令
+		// 一起听模式下不直接控制，交由房间页发指令（房间页会给出 toast 反馈）
 		uni.$emit('sst_remote_toggle');
 		return;
 	}
+	if (player.loading) return; // 正在取地址/转圈，忽略连点
 	if (player.playing) {
 		audio.pause();
 	} else if (audio.getCurrentTime() > 0) {
@@ -196,8 +309,11 @@ export function setQueue(list, startIndex = 0, positionMs = 0) {
 
 export function stop() {
 	playToken++;
+	clearWatchdog();
 	audio.stop();
 	player.playing = false;
+	player.loading = false;
+	player.buffering = false;
 	player.currentTime = 0;
 }
 
